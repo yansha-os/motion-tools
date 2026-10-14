@@ -1,9 +1,8 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-const parts = ['Rig', 'EnergyColumn', 'Authoring', 'Preview', 'ReviewCapture', 'MotionInspection'];
+import { writeFile, mkdir } from 'node:fs/promises';
+import { compileStudioPlugin } from '../dist/src/plugin-bundle.js';
+import { createBuildIdentity } from '../dist/src/build-identity.js';
 await mkdir('dist', { recursive: true });
-let output = '-- Roblox Motion Tools. Generated from studio/*.lua.\n';
-for (const name of parts) {
-  output += `local ${name} = (function()\n${await readFile(`studio/${name}.lua`, 'utf8')}\nend)()\n`;
-}
-output += await readFile('studio/Plugin.lua', 'utf8');
-await writeFile('dist/RobloxMotion.plugin.lua', output);
+const plugin = await compileStudioPlugin('.');
+const identity = await createBuildIdentity('.', plugin.pluginFingerprint);
+await writeFile('dist/RobloxMotion.plugin.lua', plugin.source);
+await writeFile('dist/build-identity.json', JSON.stringify(identity, null, 2) + '\n');
