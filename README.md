@@ -14,7 +14,7 @@ The project has three parts: a local MCP server, a Roblox Studio plugin with a d
 | Locomotion | The gait compiler creates **in-place** cycles with limb swing, optional torso motion, support intervals, and markers. Character travel is normally supplied by Roblox Humanoid movement in a game; the gait compiler does not add forward root travel. R6 has no separate elbow or knee joints, so it cannot articulate those joints independently. |
 | Advanced motion | Supports rig-aware retarget previews, sampled IK for hand/foot targets, declared-contact baking, reusable poses and pose transitions, secondary-motion layers, multi-clip timelines, and trigger-driven animation graphs. Contacts are authoring constraints/evidence, not physical collision or guaranteed foot locking. |
 | Review and testing | Samples motion on a selected Studio rig, audits structure and loop behavior, compares exact revisions on the same rig, supports acceptance plans and regression history, and can attach image evidence when Studio capture is supported and permission is granted. Automated metrics and AI review are not guarantees of artistic quality. |
-| VFX | Authors native ParticleEmitter and Beam effects, energy-column previews, and revision-pinned, animation-marker-aware VFX cue sheets. It does not create arbitrary high-quality 3D models or simulate every effect/gameplay interaction. |
+| VFX (experimental) | The MCP/server layer has recipe and marker-aware cue-sheet tools for native ParticleEmitters and Beams, plus an energy-column preview path. This is an early, agent-driven workflow—not yet a polished, fully verified VFX editor in the Studio plugin. Treat authoring, preview, and gameplay integration as experimental and verify each result in Studio. |
 | Blender worker | Works on saved `.blend` files for rig inspection, fitting a basic humanoid guide, automatic skin-weight generation/auditing, bone animation, and FBX export. It is an optional specialist workflow, not a replacement for the Studio viewport. |
 | Roblox output | Validates animation conversion in Studio and can save an editable KeyframeSequence into the current place after review. Animation publishing, game scripts, and gameplay integration remain separate steps. |
 | Local AI panel | Optionally connects Claude, DeepSeek, or GLM (Z.ai) with your own provider API key for generation, measured review, and feedback-driven revisions. Provider use may incur charges. |
@@ -64,6 +64,8 @@ Do not run `npm start` or `npm run app` while Freebuff is connected: only one pr
 Setup creates the plugin and connection files in `.local/`. It preserves an existing Blender executable setting and does not edit your chat client's settings.
 
 ### Use your own AI provider
+
+This API-key setup is for the optional browser panel's built-in AI generation and provider-backed critique. Core MCP authoring tools do not require a Motion Tools provider key. When Freebuff (or another MCP-capable agent) creates assets through those tools, the agent uses its own model access. If you explicitly enable provider-backed critique in Motion Tools, that feature does use the separately configured provider key and may incur charges.
 
 ```powershell
 npm.cmd run app
@@ -140,7 +142,7 @@ Blender works on saved `.blend` files. Save your work first, including anything 
 - Humanoid rig fitting assumes a Z-up character in a T-pose. It is a starting skeleton, not a general-purpose auto-rigger. Joint placement and skinning need a visual check.
 - The animation presets are simple starting motions. They need refinement for a finished game.
 - Joint name mapping does not fix differences in bone axes or rest poses. Blender bones with active constraints need those controls baked or disabled in a copy first.
-- VFX supports ParticleEmitters, flat native Beams, and growing 3D energy columns with arrival and fade phases. Column playback is currently a Motion Tools preview feature; saved column definitions need a runtime integration for gameplay.
+- VFX recipe and cue-sheet endpoints exist in the MCP/server layer, but the end-to-end Studio authoring experience is experimental and has not been presented as a production-ready visual editor. ParticleEmitter/Beam saves and energy-column previews have constraints; saved column definitions still need runtime integration for gameplay. Validate effects manually in Studio before relying on them.
 - Preview effects fire once at their assigned times. They do not repeat when the animation loops.
 - Publishing animations and adding gameplay code are separate steps. This tool does not upload assets or create combat scripts.
 
