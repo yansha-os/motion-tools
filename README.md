@@ -1,27 +1,25 @@
 # Roblox Motion Tools
 
-An AI-first animation authoring and verification workspace for Roblox. An MCP-capable coding agent—such as Freebuff—is the primary creator; Motion Tools gives it rig-aware tools to author, inspect, preview, refine, and validate motion in Roblox Studio.
+Motion Tools is a local-first, AI-first Roblox animation workbench. It gives an MCP-capable agent—such as Freebuff Desktop—structured tools for understanding a Roblox rig and authoring, previewing, revising, and validating motion. Roblox Studio remains the place where the rig is viewed and where a reviewed animation can become a native Roblox asset.
 
-The Studio plugin is the native work surface: it provides the isolated animation viewport, rig access, editor, and Roblox export checks. The agent can use structured rig/pose evidence and, when Studio screenshot permission is granted and the MCP client returns images, inspect rendered frames too. That makes the viewport the AI's eyes, while the rig and animation APIs give it precise context. A person remains in control of reviewing and approving saves or exports.
+The project has three parts: a local MCP server, a Roblox Studio plugin with a dedicated animation viewport and editor, and an optional local browser authoring/review panel. The MCP server is not hosted and does not include a built-in general-purpose AI model. Connect an MCP client to use its tools, or configure a supported provider in the optional browser panel. Blender is an optional worker for specific mesh/rig/FBX tasks; it is not required for the Roblox-native animation workflow.
 
-Animation is the product's current focus. Existing VFX, rigging, and Blender-worker capabilities remain available, but Roblox Studio stays the central authoring and review environment; Blender is an optional specialist, not a required part of the animation workflow. The project includes a local MCP server, Studio plugin, optional browser authoring panel, and Blender worker. There is no Motion Tools account or hosted backend.
+## What Motion Tools does
 
-## What it does
-
-| Area | Included so far |
+| Area | Current capabilities |
 | --- | --- |
-| Rigging | Inspect bones and Roblox joints, connect rigid parts with Motor6Ds, fit a basic humanoid skeleton in Blender, and bind skin weights |
-| Animation | Start with idle, walk, cast, or slash motions; compile rig-mapped walk/run/sneak gait cycles with proportion-aware stride estimates and explicit support markers; build quaternion-interpolated transitions between saved poses; retarget complete clips and optionally bake declared hand/foot contacts in one fingerprint-guarded Studio preview; edit individual joint keyframes; retime a complete clip or marker-bounded phase without desynchronizing layers/events/contacts; and save new versions |
-| VFX | Build particle effects, beams, and energy columns; save marker-aware cue sheets pinned to exact animation and effect revisions |
-| Preview | Review animation and synchronized VFX together in the isolated Motion Tools viewport for managed rigs; Workspace rigs use a temporary preview clone |
-| Export | Save Roblox KeyframeSequences or export a Blender rig and its active animation to FBX |
-| Authoring workflow | Keep model, animation and VFX briefs, annotated references, preview evidence, reviews and revision history together |
-| AI connections | Choose Claude, DeepSeek, or GLM, set a model, and generate or revise drafts using your own API key |
-| Animation library | Browse every saved animation revision in Studio, select a clip, and replay it on the selected rig |
-| Runtime integration | Turn a fingerprint-verified animation graph into a reusable Luau controller after supplying published animation IDs; typed guards, priority branches, crossfades, one-shot completion, authored marker callbacks, and respawn-safe player binding come from the same graph |
-| Review and refinement | Sample the animation on the Studio rig, inspect motion, compare revised trajectories against the exact parent on the same rig, answer follow-up questions, and make a new version from saved feedback |
+| Roblox Studio workspace | Opens a dedicated animation viewport with a managed rig library, orbit camera, timeline, playback/scrubbing, keyframe selection and editing, markers, and animation-library browsing. Motion Tools-managed rigs are kept out of the game's Workspace view. |
+| Rig understanding | Inspects supported Motor6D, AnimationConstraint, and Bone-driven rigs; reports exact driven joints and topology; supports R6/R15 rigs and explicit joint maps. It can connect rigid parts with joints. Rig inspection is structural evidence, not automatic anatomical or visual understanding. |
+| Animation authoring | Provides editable idle/walk/cast/slash starters, deterministic rig-mapped walk/run/sneak cycles, pose and phase-based authoring, keyframe patches, easing/curve editing, loop-seam tools, additive/override layers, markers, and immutable revisions. AI agents can compose these tools with their own reasoning. |
+| Locomotion | The gait compiler creates **in-place** cycles with limb swing, optional torso motion, support intervals, and markers. Character travel is normally supplied by Roblox Humanoid movement in a game; the gait compiler does not add forward root travel. R6 has no separate elbow or knee joints, so it cannot articulate those joints independently. |
+| Advanced motion | Supports rig-aware retarget previews, sampled IK for hand/foot targets, declared-contact baking, reusable poses and pose transitions, secondary-motion layers, multi-clip timelines, and trigger-driven animation graphs. Contacts are authoring constraints/evidence, not physical collision or guaranteed foot locking. |
+| Review and testing | Samples motion on a selected Studio rig, audits structure and loop behavior, compares exact revisions on the same rig, supports acceptance plans and regression history, and can attach image evidence when Studio capture is supported and permission is granted. Automated metrics and AI review are not guarantees of artistic quality. |
+| VFX (not production-ready) | Some experimental MCP/server and Studio pieces exist for particle/beam recipes, timed previews, and cue sheets. The project does **not** yet provide a complete, dependable VFX-authoring workflow; treat these pieces as prototypes, not a finished particle/beam/energy-column editor. |
+| Blender worker | Works on saved `.blend` files for rig inspection, fitting a basic humanoid guide, automatic skin-weight generation/auditing, bone animation, and FBX export. It is an optional specialist workflow, not a replacement for the Studio viewport. |
+| Roblox output | Validates animation conversion in Studio and can save an editable KeyframeSequence into the current place after review. Animation publishing, game scripts, and gameplay integration remain separate steps. |
+| Local AI panel | Optionally connects Claude, DeepSeek, or GLM (Z.ai) with your own provider API key for generation, measured review, and feedback-driven revisions. Provider use may incur charges. |
 
-**v1.0.0** adds the generate, inspect, ask, and revise loop. It is an authoring tool for editable drafts. A valid recipe or a clean inspection does not guarantee a good animation; your judgment drives the next revision. See the [release notes](docs/release-notes-v1.0.0.md) and [verification limits](docs/review-implementation-status.md).
+Motion Tools is an authoring and inspection toolkit—not an autonomous game builder, general model generator, hosted service, or promise that generated motion is production-ready. Review the animation on the intended rig and in gameplay before release. See [verification limits](docs/review-implementation-status.md) and the [tool reference](docs/tool-reference.md) for the full supported surface.
 
 ## Getting started
 
@@ -35,7 +33,7 @@ The setup scripts target Windows. You will need:
 Clone the repo and install the dependencies:
 
 ```powershell
-git clone https://github.com/kaziislam11/motion-tools.git
+git clone https://github.com/yansha-os/motion-tools.git
 cd motion-tools
 npm.cmd ci --ignore-scripts
 ```
@@ -66,6 +64,8 @@ Do not run `npm start` or `npm run app` while Freebuff is connected: only one pr
 Setup creates the plugin and connection files in `.local/`. It preserves an existing Blender executable setting and does not edit your chat client's settings.
 
 ### Use your own AI provider
+
+This API-key setup is for the optional browser panel's built-in AI generation and provider-backed critique. Core MCP authoring tools do not require a Motion Tools provider key. When Freebuff (or another MCP-capable agent) creates assets through those tools, the agent uses its own model access. If you explicitly enable provider-backed critique in Motion Tools, that feature does use the separately configured provider key and may incur charges.
 
 ```powershell
 npm.cmd run app
@@ -142,7 +142,7 @@ Blender works on saved `.blend` files. Save your work first, including anything 
 - Humanoid rig fitting assumes a Z-up character in a T-pose. It is a starting skeleton, not a general-purpose auto-rigger. Joint placement and skinning need a visual check.
 - The animation presets are simple starting motions. They need refinement for a finished game.
 - Joint name mapping does not fix differences in bone axes or rest poses. Blender bones with active constraints need those controls baked or disabled in a copy first.
-- VFX supports ParticleEmitters, flat native Beams, and growing 3D energy columns with arrival and fade phases. Column playback is currently a Motion Tools preview feature; saved column definitions need a runtime integration for gameplay.
+- VFX is incomplete: experimental recipe, preview, and cue-sheet code is present, but it is not a polished, dependable end-to-end creation workflow. Energy-column playback is a Motion Tools preview feature, not a gameplay runtime integration. Do not assume an effect is ready for a game until it has been checked and integrated manually in Studio.
 - Preview effects fire once at their assigned times. They do not repeat when the animation loops.
 - Publishing animations and adding gameplay code are separate steps. This tool does not upload assets or create combat scripts.
 
@@ -162,9 +162,9 @@ The client still creates the asset using the existing tools. It then attaches th
 
 Files are fingerprinted so changed previews cannot silently inherit an earlier review. Briefs and review history persist across restarts in the ignored `artifacts/workflows/` directory. Preserve candidate files under distinct names; the workflow stores their paths and hashes, not backup copies.
 
-This is an authoring workflow, not an autonomous art critic. The connected AI supplies the judgment, and a recorded review does not certify quality. Other MCP servers and existing low-level tools can bypass the workflow. Studio capture is still experimental, so exported images can be attached manually. See [the workflow guide](docs/authoring-workflow.md).
+This is an authoring workflow, not an autonomous art critic. The connected AI supplies the judgment, and a recorded review does not certify quality. Other MCP servers and existing low-level tools can bypass the workflow. If Studio capture is unavailable, exported screenshots can be attached manually as reference evidence. See [the workflow guide](docs/authoring-workflow.md).
 
-Automatic viewport screenshots remain experimental: the tested Studio installation returned `Feature not supported yet.` The v1 pose inspector and manually attached images work around that dependency. The earlier rendered evaluation pilot is still incomplete; see [implementation status](docs/review-implementation-status.md) and [the evaluation plan](docs/review-evaluation.md).
+Rendered viewport capture is permission-gated and depends on screenshot support in the running Roblox Studio build. If Studio reports capture unavailable or permission is denied, Motion Tools cannot claim an AI visual review; a user can attach a screenshot as reference instead. Captured images are evidence for review, not automatic proof that an animation is good. See [implementation status](docs/review-implementation-status.md) and [the evaluation plan](docs/review-evaluation.md).
 
 ## Development
 
