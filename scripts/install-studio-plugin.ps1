@@ -14,4 +14,4 @@ if (Test-Path -LiteralPath $target) {
 New-Item -ItemType Directory -Path $pluginDirectory -Force | Out-Null
 Copy-Item -LiteralPath $source -Destination $target
 Write-Output "Installed: $target"
-Write-Output 'Restart Roblox Studio, open Motion Tools from Plugins, and click Connect after your MCP client starts the server.'
+Write-Output 'Restart Roblox Studio and open Motion Tools from Plugins. The paired plugin connects automatically and retries while the local MCP server starts.'

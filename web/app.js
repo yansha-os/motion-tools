@@ -58,15 +58,38 @@ function actionInput() {
   if (!$('asset').value) throw new Error('Select a saved asset first.');
   return { ...target(), assetId: $('asset').value, seconds: Number($('seconds').value), part: $('part').value };
 }
-async function studioAction(path, data) {
-  const job = await api(path, data); status('studioStatus', `${path}: queued. Waiting for Studio...`);
+async function waitForStudioJob(jobId, label) {
+  status('studioStatus', `${label}: queued. Waiting for Studio...`);
   for (let i = 0; i < 140; i++) {
     await new Promise(resolve => setTimeout(resolve, 500));
-    const current = await api('job', { id: job.id });
-    if (current.status === 'succeeded') { status('studioStatus', path === 'save' ? 'Saved in Studio. Animations appear in the rig’s AnimSaves folder.' : `${path === 'stop' ? 'Stopped' : 'Preview started'} in Studio.`); return; }
+    const current = await api('job', { id: jobId });
+    if (current.status === 'succeeded') return current;
     if (!['queued', 'running'].includes(current.status)) throw new Error(`Studio ${current.status}: ${current.result?.error || 'Reconnect and try again. The command will not be retried automatically.'}`);
   }
   throw new Error('Studio has not confirmed completion. Check Studio before retrying.');
+}
+async function studioAction(path, data) {
+  if (path === 'save') {
+    const asset = assets.find(item => item.id === data.assetId);
+    if (asset?.kind === 'animation') {
+      const preflight = await api('save-preflight', data);
+      const checked = await waitForStudioJob(preflight.id, 'Export preflight');
+      const evidence = checked.result;
+      if (!evidence || typeof evidence !== 'object' || evidence.valid !== true || evidence.assetId !== data.assetId || evidence.rigId !== data.rigId
+        || evidence.saved !== false || !Array.isArray(evidence.mappedTargetJoints) || evidence.mappedTargetJoints.length !== evidence.animatedTrackCount)
+        throw new Error('Studio export preflight did not return verified evidence for the selected animation and rig. No save was queued.');
+      const rig = targets.find(item => item.sessionId === data.sessionId && item.rigId === data.rigId);
+      const approved = window.confirm(`Studio converted this exact animation successfully.\n\nAnimation: ${asset.name}\nRig: ${rig?.name || data.rigId}\nFrames: ${evidence.frameCount} · Poses: ${evidence.poseCount} · Markers: ${evidence.markerCount}\nMapped recipe targets: ${evidence.mappedTargetJoints.join(', ')}\n\nFingerprint: ${evidence.assetFingerprint}\n\nApprove saving this exact revision to the rig’s AnimSaves folder?`);
+      if (!approved) { status('studioStatus', 'Save cancelled. The animation remains unchanged in the library.'); return; }
+      const saved = await api('save', { ...data, preflightJobId: preflight.id, userApprovedFingerprint: evidence.assetFingerprint });
+      await waitForStudioJob(saved.id, 'Approved save');
+      status('studioStatus', 'Saved in Studio. The locally editable KeyframeSequence is in the rig’s AnimSaves folder.');
+      return;
+    }
+  }
+  const job = await api(path, data);
+  await waitForStudioJob(job.id, path);
+  status('studioStatus', path === 'save' ? 'Saved in Studio.' : `${path === 'stop' ? 'Stopped' : 'Preview started'} in Studio.`);
 }
 function bind(id, handler, output = 'studioStatus') { $(id).addEventListener('click', async () => { $(id).disabled = true; try { await handler(); } catch (error) { status(output, error.message, true); } finally { $(id).disabled = false; } }); }
 $('provider').addEventListener('change', providerChanged);
@@ -116,7 +139,16 @@ $('draftForm').addEventListener('submit', async event => {
   } catch (error) { status('draftStatus', error.message, true); } finally { $('generate').disabled = false; }
 });
 $('cancel').addEventListener('click', async () => {
-  try { const id = sessionStorage.getItem('motion-draft-job'); if (id) { await api('cancel', { id }); $('cancel').disabled = true; status('draftStatus', 'Cancellation requested. Tokens already generated may still be billed.'); } }
+  try {
+    const id = sessionStorage.getItem('motion-draft-job');
+    if (id) {
+      const result = await api('cancel', { id });
+      $('cancel').disabled = true;
+      status('draftStatus', result.requested ? 'Cancellation requested. Tokens already generated may still be billed.'
+        : result.reason === 'draft_already_saved' ? 'The draft is already saved; finishing review setup. You can still inspect or discard it.'
+          : 'There is no active draft generation to cancel.');
+    }
+  }
   catch (error) { status('draftStatus', error.message, true); }
 });
 const reviewUI = window.MotionReview.initialize({ api, status, currentAsset: () => assets.find(a => a.id === $('asset').value), target, studioAction, watchDraft,

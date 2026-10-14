@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "status": "specification_only",
-  "notes": "These describe synthetic fixtures to construct and verify. They are not completed measurements or executable animation recipes.",
+  "status": "executable_synthetic_detector_fixtures",
+  "notes": "Paired control/flawed recipes and synthetic telemetry are executable in tests/review/fixtures/pilot-cases.ts. They test detector sensitivity only; no live Studio captures, AI reviewer results, or rendered-quality measurements are included.",
   "cases": [
     {
       "id": "idle-control",

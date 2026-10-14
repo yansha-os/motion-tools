@@ -7,10 +7,14 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "build": "tsc && node scripts/package-plugin.mjs",
+    "doctor": "node dist/src/doctor.js",
     "setup": "npm run build && node scripts/setup.mjs",
+    "setup:freebuff": "npm run build && node scripts/setup-freebuff.mjs",
     "start": "node dist/src/index.js",
     "app": "node scripts/app.mjs",
     "test": "npm run build && node --test dist/tests/*.test.js",
+    "test:studio": "node scripts/test-studio.mjs",
+    "test:all": "npm test && npm run test:studio",
     "test:blender": "node scripts/test-blender.mjs"
   },
   "dependencies": { "@modelcontextprotocol/sdk": "^1.27.1", "zod": "^3.25.76" },

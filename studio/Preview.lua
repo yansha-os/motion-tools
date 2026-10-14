@@ -27,6 +27,31 @@ function Preview.copy(model)
     return clone
 end
 
+-- Screenshot staging is deliberately independent of the shared, interactive preview.
+-- A capture must never stop a user's already-running Workspace preview.
+function Preview.capturePose(model, payload)
+    assert(not RunService:IsRunning(), "Stop Play/Test mode before capturing an animation pose.")
+    assert(payload.animation and payload.animation.kind == "animation", "Screenshot staging requires an animation recipe.")
+    assert(type(payload.sampleTime) == "number" and payload.sampleTime >= 0 and payload.sampleTime <= payload.animation.duration,
+        "Screenshot pose time is outside the animation duration.")
+    local clone = Preview.copy(model)
+    local ok, result = pcall(function()
+        clone.Name = "MotionCapture_" .. model.Name
+        clone.Parent = workspace
+        local _, nodes, tracks, appliedJointMap = Authoring.tracks(clone, payload.animation, payload.jointMap or {})
+        Authoring.apply(nodes, tracks, payload.sampleTime)
+        for _, accessory in Rig.accessoryBindings(clone) do
+            accessory.handle.CFrame = accessory.body.CFrame * accessory.offset
+        end
+        return appliedJointMap
+    end)
+    if not ok then
+        pcall(function() clone:Destroy() end)
+        error(result)
+    end
+    return clone, result
+end
+
 function Preview.start(model, payload)
     Preview.stop()
     assert(not RunService:IsRunning(), "Stop Play/Test mode before previewing.")

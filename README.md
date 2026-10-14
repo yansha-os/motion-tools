@@ -1,24 +1,25 @@
 # Roblox Motion Tools
 
-Rigging, animation, and VFX tools for Roblox. Bring your own Claude, DeepSeek, or GLM API key, or use an MCP client.
+An AI-first animation authoring and verification workspace for Roblox. An MCP-capable coding agent—such as Freebuff—is the primary creator; Motion Tools gives it rig-aware tools to author, inspect, preview, refine, and validate motion in Roblox Studio.
 
-Making a model is only part of getting a character into a game. It still needs a skeleton, animations, and effects that line up with the motion. This project connects Blender and Roblox Studio so those jobs can be done from the same conversation.
+The Studio plugin is the native work surface: it provides the isolated animation viewport, rig access, editor, and Roblox export checks. The agent can use structured rig/pose evidence and, when Studio screenshot permission is granted and the MCP client returns images, inspect rendered frames too. That makes the viewport the AI's eyes, while the rig and animation APIs give it precise context. A person remains in control of reviewing and approving saves or exports.
 
-The project includes a local server, a Studio plugin, a browser authoring panel, and a Blender worker. The panel can generate animation and VFX drafts without Codex or Cursor. MCP clients can also use the full tool set, including Blender rigging. There is no Motion Tools account or hosted backend.
+Animation is the product's current focus. Existing VFX, rigging, and Blender-worker capabilities remain available, but Roblox Studio stays the central authoring and review environment; Blender is an optional specialist, not a required part of the animation workflow. The project includes a local MCP server, Studio plugin, optional browser authoring panel, and Blender worker. There is no Motion Tools account or hosted backend.
 
 ## What it does
 
 | Area | Included so far |
 | --- | --- |
 | Rigging | Inspect bones and Roblox joints, connect rigid parts with Motor6Ds, fit a basic humanoid skeleton in Blender, and bind skin weights |
-| Animation | Start with idle, walk, cast, or slash motions, edit individual joint keyframes, and save new versions |
-| VFX | Build particle effects with editable color, size, lifetime, speed, spread, and emission |
-| Preview | Preview an animation with timed effects on a temporary copy of a Studio rig |
+| Animation | Start with idle, walk, cast, or slash motions; compile rig-mapped walk/run/sneak gait cycles with proportion-aware stride estimates and explicit support markers; build quaternion-interpolated transitions between saved poses; retarget complete clips and optionally bake declared hand/foot contacts in one fingerprint-guarded Studio preview; edit individual joint keyframes; retime a complete clip or marker-bounded phase without desynchronizing layers/events/contacts; and save new versions |
+| VFX | Build particle effects, beams, and energy columns; save marker-aware cue sheets pinned to exact animation and effect revisions |
+| Preview | Review animation and synchronized VFX together in the isolated Motion Tools viewport for managed rigs; Workspace rigs use a temporary preview clone |
 | Export | Save Roblox KeyframeSequences or export a Blender rig and its active animation to FBX |
 | Authoring workflow | Keep model, animation and VFX briefs, annotated references, preview evidence, reviews and revision history together |
 | AI connections | Choose Claude, DeepSeek, or GLM, set a model, and generate or revise drafts using your own API key |
 | Animation library | Browse every saved animation revision in Studio, select a clip, and replay it on the selected rig |
-| Review and refinement | Sample the animation on the Studio rig, inspect motion, answer follow-up questions, and make a new version from saved feedback |
+| Runtime integration | Turn a fingerprint-verified animation graph into a reusable Luau controller after supplying published animation IDs; typed guards, priority branches, crossfades, one-shot completion, authored marker callbacks, and respawn-safe player binding come from the same graph |
+| Review and refinement | Sample the animation on the Studio rig, inspect motion, compare revised trajectories against the exact parent on the same rig, answer follow-up questions, and make a new version from saved feedback |
 
 **v1.0.0** adds the generate, inspect, ask, and revise loop. It is an authoring tool for editable drafts. A valid recipe or a clean inspection does not guarantee a good animation; your judgment drives the next revision. See the [release notes](docs/release-notes-v1.0.0.md) and [verification limits](docs/review-implementation-status.md).
 
@@ -52,6 +53,16 @@ npm.cmd run setup
 .\scripts\install-studio-plugin.ps1
 ```
 
+For the Freebuff Desktop workflow, use the one-command setup instead:
+
+```powershell
+npm.cmd run setup:freebuff
+```
+
+This builds Motion Tools, prepares `.local/mcp-config.json` (preserving other MCP server entries), and installs the paired Roblox Studio plugin. In Freebuff Desktop, add a local stdio MCP server named `roblox-motion` using the `command`, `args`, and `env` from `.local/mcp-config.json`. Restart/reload Freebuff so it starts the server, then restart Studio, open **Plugins > Motion Tools**, add or choose a rig in the plugin's **Rig Library**, and click **Connect**. Prompt Freebuff to inspect the active rig and create an animation through Motion Tools; review it in the plugin viewport before asking Freebuff to save it. New built-in R6/R15 rigs are kept under `ServerStorage.MotionToolsRigs`, not in the game viewport. The plugin cannot launch Freebuff or a local process itself.
+
+Do not run `npm start` or `npm run app` while Freebuff is connected: only one process can own the local Studio bridge port. The browser panel and its provider API-key flow remain optional alternatives, not requirements for Freebuff.
+
 Setup creates the plugin and connection files in `.local/`. It preserves an existing Blender executable setting and does not edit your chat client's settings.
 
 ### Use your own AI provider
@@ -62,22 +73,26 @@ npm.cmd run app
 
 This opens a local browser panel. Choose **Claude**, **DeepSeek**, or **GLM (Z.ai)**, follow **Get an API key**, then enter the key and click **Save connection**. You can change the model ID before generating. Keys stay in server memory by default. On Windows, **Remember with Windows encryption** stores a DPAPI-protected key in the ignored `.local/` directory. Environment variables are also supported: `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, and `ZAI_API_KEY`.
 
-Open Studio, select a rig, and connect the Motion Tools plugin. In the browser, choose that rig under **Target rig**, write the motion or effect you want, and click **Generate draft**. With inspection enabled, the harness samples the animation, starts its Studio preview, and opens **Watch, judge, refine**. Use **Preview selected** to replay it and **Save to Studio** to create the editable native asset.
+Open Studio, select a rig, and connect the Motion Tools plugin. In the browser, choose that rig under **Target rig**, write the motion or effect you want, and click **Generate draft**. With inspection enabled, the harness samples the animation, starts its Studio preview, and opens **Watch, judge, refine**. Use **Preview selected** to replay it. For animation saves, **Save to Studio** first runs the real Studio export conversion, then asks you to approve the displayed exact recipe fingerprint and conversion counts before creating the editable native asset. VFX saves do not use the animation export-preflight flow.
+
+The Studio plugin is the native review and save workspace; Freebuff is the AI interface. Choose a rig in the plugin, create/revise through MCP, open the saved recipe in the plugin viewport, and save it to that rig only after review. The browser authoring panel remains an optional legacy workflow and is not needed for Freebuff.
 
 API use is billed by the selected provider. There is no shared Motion Tools AI account or consumer chat login. Saving a connection makes no API call. Each draft uses one generation call. **Ask my AI to review the pose data** is checked by default and adds one critique call when Studio samples are available. Uncheck it for measured inspection and feedback questions without that extra call. An optional repair permits one more call when recipe validation fails. See [provider setup and limits](docs/provider-connections.md).
 
 If the app starts the server, keep its terminal open. If an updated MCP server is already running, the app reuses it. After updating Motion Tools, restart an older server before opening the panel. Only one server can own the Studio bridge port.
 
-### Use an MCP client
+### Use Freebuff as the AI agent
 
-Add the generated server configuration to your client:
+The Freebuff Desktop setup above makes Freebuff the agent that decides when to use Motion Tools. The server is a local stdio MCP connector; Roblox Studio's plugin is its live viewport and asset bridge. `.local/mcp-config.json` contains the command, arguments and project-root environment needed to launch it. Add those fields as a local MCP connector in Freebuff Desktop. Motion Tools does not need a separate AI provider API key for this workflow.
+
+Other MCP clients can use the generated server configuration too:
 
 | File | Use |
 | --- | --- |
-| `.local/mcp-config.json` | Clients with a JSON `mcpServers` configuration, including Cursor |
-| `.local/codex-config.toml` | Codex MCP configuration |
+| `.local/mcp-config.json` | MCP clients that accept a JSON `mcpServers` configuration; use its entry to configure Freebuff Desktop |
+| `.local/codex-config.toml` | Legacy Codex MCP configuration, if already generated |
 
-Reload your chat client, then restart Studio. Open **Plugins > Motion Tools**, select a rig in Workspace, and click **Connect**. Allow the plugin to communicate with `127.0.0.1` if Studio asks. Keep Studio in edit mode.
+Reload your chat client, then restart Studio. Open **Plugins > Motion Tools**, add or choose a rig in the **Rig Library**, and click **Connect**. Allow the plugin to communicate with `127.0.0.1` if Studio asks. Keep Studio in edit mode.
 
 Let your MCP client start the server. Running `npm start` at the same time will cause a port conflict. Use one client connection at a time.
 
@@ -87,7 +102,7 @@ The files in `.local/` contain your pairing token and machine-specific paths. Ke
 
 Once connected, ask your client to:
 
-> Inspect my selected rig. Make a two-second casting animation and preview it with a fire charge on the right hand.
+> Inspect the active rig in Motion Tools. Create a two-second casting animation, save the recipe to the library, and open it in the Motion Tools Animation Studio viewport. Wait for the Studio job to succeed; don't save it into the place until I approve the preview.
 
 Or refine something you already made:
 
@@ -131,7 +146,9 @@ Blender works on saved `.blend` files. Save your work first, including anything 
 - Preview effects fire once at their assigned times. They do not repeat when the animation loops.
 - Publishing animations and adding gameplay code are separate steps. This tool does not upload assets or create combat scripts.
 
-See the [tool reference](docs/tool-reference.md) for all 30 MCP tools, recipe details, and the Studio test checklist. There are also [example recipes](examples/) you can use as a starting point.
+See the [tool reference](docs/tool-reference.md) for the full MCP toolset, including trigger-driven animation graph authoring and route compilation, whole-clip contact baking for alternating foot plants and overlapping supports, preview/visual inspection and fingerprint-guarded apply for coordinated multi-effector IK, world-space IK pole targets for elbow/knee bend-plane control, reusable and analyzable target paths, additive secondary-motion synthesis, pose-transition authoring and offline fingerprinted animation regression benchmarks, recipe details, and the Studio test checklist. There are also [example recipes](examples/) you can use as a starting point.
+
+See the [open-source reuse evaluation](docs/open-source-evaluation.md) for current licensing, compatibility, and integration decisions on related Roblox animation/MCP projects.
 
 ## Work from references
 
@@ -150,6 +167,12 @@ This is an authoring workflow, not an autonomous art critic. The connected AI su
 Automatic viewport screenshots remain experimental: the tested Studio installation returned `Feature not supported yet.` The v1 pose inspector and manually attached images work around that dependency. The earlier rendered evaluation pilot is still incomplete; see [implementation status](docs/review-implementation-status.md) and [the evaluation plan](docs/review-evaluation.md).
 
 ## Development
+
+If the plugin or connector is unavailable after an update, run `npm.cmd run doctor` (add `-- --json` for structured output). It reads the generated, prepared, and installed plugin, checks pairing and prepared connector paths, and probes the paired local bridge. It reports specific repair steps without changing files or starting another server. After building and reloading the MCP connector, Freebuff can use `motion_installation_diagnostics` for the same file checks and current server session count. Passing installation checks does not establish Studio rig/editor readiness; continue with `motion_agent_resume` and `motion_agent_readiness`.
+
+For JSON without npm’s banner, use `npm.cmd --silent run doctor -- --json` (or `node dist/src/doctor.js --json`).
+
+After rebuilding, the doctor also compares the running bridge’s build fingerprint with current artifacts. Agent resume reports the connected plugin’s build fingerprint separately. A different build needs reload/update; an older installation without build metadata reports unknown. This catches a server or Studio plugin that kept running an old build after its files were updated.
 
 Run the build and tests:
 

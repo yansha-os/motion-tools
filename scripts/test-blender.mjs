@@ -18,7 +18,10 @@ async function run(args) {
     const child = spawn(executable, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     const timeout = setTimeout(() => { child.kill(); fail(new Error('Fixture operation timed out.')); }, 120000);
     child.stdout.on('data', x => { log += x; }); child.stderr.on('data', x => { log += x; });
-    child.once('error', e => { clearTimeout(timeout); fail(e); });
+    child.once('error', e => {
+      clearTimeout(timeout);
+      fail(new Error(`Could not launch Blender at "${executable}": ${e.message}. Install Blender, run scripts/bootstrap-blender.ps1, or set BLENDER_EXECUTABLE to your Blender executable.`));
+    });
     child.once('close', code => { clearTimeout(timeout); code === 0 ? done() : fail(new Error(log)); });
   });
   return log;

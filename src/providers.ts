@@ -103,6 +103,20 @@ export class Connections {
 export type Completion = { text: string; usage: { inputTokens: number; outputTokens: number } };
 export type ProviderImage = { base64: string; mimeType: 'image/png' };
 export type Complete = (credential: Credential, system: string, prompt: string, maxTokens: number, signal: AbortSignal, images?: ProviderImage[]) => Promise<Completion>;
+const usageSchema = z.object({ input_tokens: z.number().optional(), output_tokens: z.number().optional(), prompt_tokens: z.number().optional(), completion_tokens: z.number().optional() }).passthrough();
+const claudeResponseSchema = z.object({
+  content: z.array(z.object({ type: z.string(), text: z.string().optional() }).passthrough()).optional(),
+  stop_reason: z.string().nullable().optional(),
+  usage: usageSchema.optional(),
+}).passthrough();
+const compatibleResponseSchema = z.object({
+  choices: z.array(z.object({
+    finish_reason: z.string().nullable().optional(),
+    message: z.object({ content: z.string().nullable().optional() }).passthrough().optional(),
+  }).passthrough()).optional(),
+  usage: usageSchema.optional(),
+}).passthrough();
+
 export function providerClient(fetcher: typeof fetch = fetch): Complete {
   return async (credential, system, prompt, maxTokens, signal, images = []) => {
     const { provider, model, apiKey, workspace } = credential;
@@ -139,13 +153,32 @@ export function providerClient(fetcher: typeof fetch = fetch): Complete {
       if (bytes > 2_000_000) { await reader.cancel(); throw new Error('Provider response exceeded 2 MB. Request a shorter draft.'); }
       chunks.push(next.value);
     }
-    let data: any;
-    try { data = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('Provider returned invalid JSON.'); }
-    const truncated = claude ? data.stop_reason === 'max_tokens' : data.choices?.[0]?.finish_reason === 'length';
+    let parsed: unknown;
+    try { parsed = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('Provider returned invalid JSON.'); }
+    let text: string | null | undefined;
+    let truncated = false;
+    let inputTokens: unknown;
+    let outputTokens: unknown;
+    if (claude) {
+      const payloadShape = claudeResponseSchema.safeParse(parsed);
+      if (!payloadShape.success) throw new Error('Provider returned an unexpected response shape. Check the model ID and try again.');
+      const data = payloadShape.data;
+      truncated = data.stop_reason === 'max_tokens';
+      text = data.content?.filter(block => block.type === 'text').flatMap(block => block.text === undefined ? [] : [block.text]).join('\n');
+      inputTokens = data.usage?.input_tokens;
+      outputTokens = data.usage?.output_tokens;
+    } else {
+      const payloadShape = compatibleResponseSchema.safeParse(parsed);
+      if (!payloadShape.success) throw new Error('Provider returned an unexpected response shape. Check the model ID and try again.');
+      const data = payloadShape.data;
+      truncated = data.choices?.[0]?.finish_reason === 'length';
+      text = data.choices?.[0]?.message?.content;
+      inputTokens = data.usage?.prompt_tokens;
+      outputTokens = data.usage?.completion_tokens;
+    }
     if (truncated) throw new Error('Draft reached the output token limit. Increase the limit or request a shorter animation.');
-    const text = claude ? data.content?.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n') : data.choices?.[0]?.message?.content;
     if (typeof text !== 'string' || !text.trim()) throw new Error('Provider returned no draft text.');
     const count = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
-    return { text, usage: { inputTokens: count(data.usage?.[claude ? 'input_tokens' : 'prompt_tokens']), outputTokens: count(data.usage?.[claude ? 'output_tokens' : 'completion_tokens']) } };
+    return { text, usage: { inputTokens: count(inputTokens), outputTokens: count(outputTokens) } };
   };
 }
